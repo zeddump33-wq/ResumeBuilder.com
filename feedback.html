@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ResuméCraft — Public Feedback</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+   <link rel="icon" type="png" href="icon2.png" />
+</head>
+<body>
+  <div class="app-shell feedback-shell">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-toggle" id="backBtn" type="button" onclick="window.location.href='index.html'" aria-label="Back to ResumeCraft">
+          <i class="fas fa-arrow-left"></i>
+        </button>
+        <div class="topbar-brand">
+          <span class="brand-name">ResuméCraft</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <button class="topbar-btn feedback-btn" type="button" onclick="window.location.href='feedback.html'" aria-label="Refresh Feedback Page">
+          <i class="fas fa-comment-dots"></i>
+          <span>Feedback</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="feedback-page">
+      <div class="feedback-grid">
+        <section class="feedback-card-shell">
+          <div class="feedback-card-header">
+            <div>
+              <h1 class="feedback-page-title">Community Feedback</h1>
+              <p class="feedback-page-subtitle">Share suggestions, feature requests, or report issues.</p>
+            </div>
+          </div>
+
+          <div class="feedback-glass-card">
+            <div class="compose-row">
+              <div class="compose-avatar" aria-hidden="true">
+                <i class="fas fa-user"></i>
+              </div>
+              <div class="compose-fields">
+                <label for="feedbackName" class="compose-label">Name</label>
+                <input id="feedbackName" type="text" placeholder="Your name" maxlength="50" autocomplete="name" />
+
+                <label for="feedbackMessage" class="compose-label" style="margin-top:10px;">Comment</label>
+                <textarea id="feedbackMessage" class="compose-textarea" rows="5" maxlength="500" placeholder="Write your feedback..." ></textarea>
+
+                <div class="compose-footer">
+                  <span class="char-count" id="charCount">0 / 500</span>
+
+                  <button id="sendBtn" class="btn-send-feedback" type="button" onclick="submitFeedback()">
+                    <i class="fas fa-paper-plane"></i>
+                    <span>Send</span>
+                  </button>
+                </div>
+
+                <div id="sendLoading" class="send-loading" aria-live="polite" style="display:none;">
+                  <div class="spinner" aria-hidden="true"></div>
+                  <div class="send-loading-text">Sending…</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="feedback-divider feedback-divider-public">
+            <span>Latest</span>
+            <span class="comment-count" id="commentCount">0 comments</span>
+          </div>
+        </section>
+
+        <section class="feedback-list-public" aria-label="Public feedback list">
+          <div id="feedbackEmpty" class="feedback-empty-public">
+            <i class="fas fa-comments"></i>
+            <p>No feedback yet. Be the first!</p>
+          </div>
+          <div id="feedbackList" class="feedback-list-public-inner"></div>
+        </section>
+      </div>
+    </main>
+
+    
+    <footer class="feedback-footer">
+      <div class="footer-content">
+        <div class="footer-copyright">
+          &copy; 2026 ResuméCraft. All rights reserved.
+        </div>
+        <div class="footer-social">
+          <a href="https://www.facebook.com/share/p/1LQXz2Cu8a/" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="Facebook">
+            <i class="fab fa-facebook-f"></i>
+          </a>
+          <!-- You can add more social icons here if needed -->
+        </div>
+      </div>
+    </footer>
+    
+  </div>
+
+  <script type="module">
+    // Firebase (DO NOT change configuration format/values beyond keeping Firestore/collection name)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      query,
+      orderBy,
+      onSnapshot,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCbLlmVPWhi5L9kW7H7aRlbm_PfvCZG9Q8",
+      authDomain: "resumecraft-3efe2.firebaseapp.com",
+      projectId: "resumecraft-3efe2",
+      storageBucket: "resumecraft-3efe2.firebasestorage.app",
+      messagingSenderId: "309793151805",
+      appId: "1:309793151805:web:802c8e45cd5a816511c354",
+      measurementId: "G-L78KGN6CDJ"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const form = {
+      name: document.getElementById('feedbackName'),
+      message: document.getElementById('feedbackMessage'),
+      count: document.getElementById('charCount'),
+      sendBtn: document.getElementById('sendBtn'),
+      loading: document.getElementById('sendLoading'),
+      list: document.getElementById('feedbackList'),
+      empty: document.getElementById('feedbackEmpty'),
+      commentCount: document.getElementById('commentCount')
+    };
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'<')
+        .replace(/>/g,'>')
+        .replace(/"/g,'"')
+        .replace(/'/g,'&#039;');
+    }
+
+    function initialsFromName(name) {
+      const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) return 'G';
+      const a = parts[0]?.[0] || 'G';
+      const b = (parts.length > 1 ? parts[parts.length - 1]?.[0] : '') || '';
+      return (a + b).toUpperCase();
+    }
+
+    function formatFirestoreDate(ts) {
+      try {
+        const ms = ts?.toDate ? ts.toDate() : new Date(ts);
+        const d = ms instanceof Date ? ms : new Date(ms);
+        if (isNaN(d.getTime())) return '';
+        return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) +
+          ' ' + d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
+      } catch {
+        return '';
+      }
+    }
+
+    function setLoading(isLoading) {
+      form.sendBtn.disabled = isLoading;
+      form.sendBtn.style.opacity = isLoading ? '0.75' : '1';
+      form.loading.style.display = isLoading ? 'flex' : 'none';
+    }
+
+    window.submitFeedback = async function submitFeedback() {
+      const name = (form.name.value || '').trim();
+      const message = (form.message.value || '').trim();
+
+      if (!message) {
+        alert('Please enter a comment before sending.');
+        return;
+      }
+
+      if (message.length > 500) {
+        alert('Comment is too long. Max 500 characters.');
+        return;
+      }
+
+      const displayName = name || 'Guest';
+
+      setLoading(true);
+      try {
+        await addDoc(collection(db, 'feedbacks'), {
+          name: displayName,
+          message,
+          createdAt: serverTimestamp()
+        });
+
+        form.message.value = '';
+        form.name.value = displayName === 'Guest' ? '' : form.name.value;
+        form.count.textContent = `0 / 500`;
+      } catch (err) {
+        console.error(err);
+        alert('Failed to send feedback. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Char counter
+    form.message.addEventListener('input', () => {
+      const len = form.message.value.length;
+      form.count.textContent = `${len} / 500`;
+      if (len > 450) form.count.classList.add('warning');
+      else form.count.classList.remove('warning');
+      if (len > 490) form.count.classList.add('error');
+      else form.count.classList.remove('error');
+    });
+
+    // Live feed (newest first)
+    const q = query(collection(db, 'feedbacks'), orderBy('createdAt', 'desc'));
+
+    onSnapshot(q, (snapshot) => {
+      const count = snapshot.size;
+      form.commentCount.textContent = `${count} comment${count !== 1 ? 's' : ''}`;
+
+      if (count === 0) {
+        form.empty.style.display = 'flex';
+        form.list.innerHTML = '';
+        return;
+      }
+
+      form.empty.style.display = 'none';
+
+      // Render in one pass
+      const html = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data() || {};
+        const name = data.name || 'Guest';
+        const msg = data.message || data.text || '';
+        const ts = data.createdAt;
+        const when = formatFirestoreDate(ts);
+
+        html.push(`
+          <article class="comment-card" tabindex="0">
+            <div class="comment-avatar" aria-hidden="true">${escapeHtml(initialsFromName(name))}</div>
+            <div class="comment-body">
+              <div class="comment-top">
+                <div class="comment-username">${escapeHtml(name)}</div>
+                <div class="comment-time">${escapeHtml(when)}</div>
+              </div>
+              <div class="comment-text">${escapeHtml(msg).replace(/\n/g, '<br>')}</div>
+            </div>
+          </article>
+        `);
+      });
+
+      form.list.innerHTML = html.join('');
+    });
+  </script>
+
+  <style>
+    .feedback-shell { background: var(--bg); }
+
+    .feedback-page {
+      padding-top: 80px;
+      min-height: calc(100vh - 56px - 80px); 
+      overflow: auto;
+    }
+
+    .feedback-grid {
+      max-width: 1060px;
+      margin: 0 auto;
+      padding: 16px 16px 36px;
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .feedback-card-shell {
+      position: sticky;
+      top: 76px;
+      align-self: start;
+    }
+
+    .feedback-card-header {
+      padding: 0 0 12px;
+    }
+
+    .feedback-page-title {
+      font-family: var(--font-display);
+      font-size: 1.7rem;
+      color: var(--accent);
+      letter-spacing: 0.01em;
+    }
+
+    .feedback-page-subtitle {
+      margin-top: 6px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .feedback-glass-card {
+      background: rgba(24,24,28,0.55);
+      border: 1px solid rgba(46,46,56,0.9);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+      padding: 16px;
+      animation: feedbackIn 0.35s ease both;
+    }
+
+    .compose-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .compose-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border);
+      background: rgba(34,34,40,0.7);
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .compose-fields { flex: 1; min-width: 0; }
+
+    .compose-label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    .compose-textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: var(--text);
+      outline: none;
+      resize: vertical;
+      min-height: 150px;
+      font-family: var(--font-body);
+      font-size: 0.9rem;
+      margin-top: 6px;
+    }
+
+    .compose-fields input {
+      width: 100%;
+      margin-top: 6px;
+    }
+
+    .compose-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .send-loading {
+      margin-top: 10px;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid rgba(200,169,110,0.35);
+      border-top-color: var(--accent);
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .feedback-divider-public {
+      margin-top: 14px;
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .feedback-list-public {
+      background: rgba(24,24,28,0.35);
+      border: 1px solid rgba(46,46,56,0.9);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      min-height: 420px;
+      overflow: hidden;
+    }
+
+    .feedback-list-public-inner {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .feedback-empty-public {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 48px 16px;
+      color: var(--text-dim);
+    }
+
+    .feedback-empty-public i { font-size: 2rem; }
+
+    .comment-card {
+      display: flex;
+      gap: 12px;
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(46,46,56,0.9);
+      background: rgba(24,24,28,0.6);
+      animation: feedbackIn 0.25s ease both;
+      transition: border-color 0.2s ease, transform 0.15s ease;
+    }
+
+    .comment-card:hover {
+      border-color: rgba(200,169,110,0.65);
+      transform: translateY(-1px);
+    }
+
+    .comment-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(34,34,40,0.8);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      flex-shrink: 0;
+    }
+
+    .comment-body { flex: 1; min-width: 0; }
+
+    .comment-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .comment-username {
+      font-weight: 800;
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+
+    .comment-time {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      white-space: nowrap;
+    }
+
+    .comment-text {
+      color: var(--text);
+      line-height: 1.65;
+      font-size: 0.92rem;
+      word-break: break-word;
+    }
+
+    .btn-send-feedback { white-space: nowrap; }
+
+
+.feedback-footer {
+  background: rgba(24,24,28,0.8);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--border);
+  padding: 20px 24px;
+  margin-top: 40px;
+}
+
+.footer-content {
+  max-width: 1060px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.footer-copyright {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  order: 2; 
+}
+
+.footer-social {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  order: 1; 
+}
+
+.social-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  transition: var(--transition);
+}
+
+.social-link:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1a1409;
+  transform: translateY(-2px);
+}
+
+
+    @media (max-width: 900px) {
+      .feedback-grid { grid-template-columns: 1fr; }
+      .feedback-card-shell { position: static; top: auto; }
+      .feedback-page { height: auto; }
+      .footer-content { flex-direction: column; text-align: center; }
+    }
+  </style>
+</body>
+</html>
