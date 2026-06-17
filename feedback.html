@@ -38,30 +38,32 @@
             </div>
           </div>
 
-          <div class="feedback-glass-card">
+          <div class="feedback-alert">
+            <i class="fas fa-triangle-exclamation"></i>
+            <div class="feedback-alert-text">
+              <strong>Feedback is temporarily unavailable.</strong> The database is currently down. Please check back later.
+            </div>
+          </div>
+
+          <div class="feedback-glass-card" style="opacity:0.5;pointer-events:none;">
             <div class="compose-row">
               <div class="compose-avatar" aria-hidden="true">
                 <i class="fas fa-user"></i>
               </div>
               <div class="compose-fields">
                 <label for="feedbackName" class="compose-label">Name</label>
-                <input id="feedbackName" type="text" placeholder="Your name" maxlength="50" autocomplete="name" />
+                <input id="feedbackName" type="text" placeholder="Your name" maxlength="50" autocomplete="name" disabled />
 
                 <label for="feedbackMessage" class="compose-label" style="margin-top:10px;">Comment</label>
-                <textarea id="feedbackMessage" class="compose-textarea" rows="5" maxlength="500" placeholder="Write your feedback..." ></textarea>
+                <textarea id="feedbackMessage" class="compose-textarea" rows="5" maxlength="500" placeholder="Write your feedback..." disabled></textarea>
 
                 <div class="compose-footer">
                   <span class="char-count" id="charCount">0 / 500</span>
 
-                  <button id="sendBtn" class="btn-send-feedback" type="button" onclick="submitFeedback()">
+                  <button id="sendBtn" class="btn-send-feedback" type="button" disabled style="opacity:0.5;cursor:not-allowed;">
                     <i class="fas fa-paper-plane"></i>
                     <span>Send</span>
                   </button>
-                </div>
-
-                <div id="sendLoading" class="send-loading" aria-live="polite" style="display:none;">
-                  <div class="spinner" aria-hidden="true"></div>
-                  <div class="send-loading-text">Sending…</div>
                 </div>
               </div>
             </div>
@@ -538,6 +540,34 @@
   transform: translateY(-2px);
 }
 
+
+    .feedback-alert {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: var(--radius-lg);
+      background: rgba(224,92,92,0.12);
+      border: 1px solid rgba(224,92,92,0.3);
+      color: var(--danger);
+      margin-bottom: 14px;
+      animation: feedbackIn 0.35s ease both;
+    }
+
+    .feedback-alert i {
+      font-size: 1.3rem;
+      flex-shrink: 0;
+    }
+
+    .feedback-alert-text {
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+
+    .feedback-alert-text strong {
+      display: block;
+      margin-bottom: 2px;
+    }
 
     @media (max-width: 900px) {
       .feedback-grid { grid-template-columns: 1fr; }
